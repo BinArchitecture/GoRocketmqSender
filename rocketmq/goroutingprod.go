@@ -22,6 +22,7 @@ type GoroutingProd struct {
 	mapResult map[int64]*SendResult
 	resultLock sync.RWMutex
 	seed int64
+	timeoutSyncChan chan int64
 }
 
 func NewRoutingProducer(producer Producer,coRoutingCount int) (Producer, error) {
@@ -36,6 +37,7 @@ func NewRoutingProducer(producer Producer,coRoutingCount int) (Producer, error) 
 	}
 	prod.msgChan=make(chan *MsgRes,chanCount)
 	prod.mapResult=make(map[int64]*SendResult)
+	prod.timeoutSyncChan=make(chan int64,1024)
 	prod.seed=0
 	fmt.Printf("successfully inited routingprod\n")
 	return prod, nil
@@ -50,6 +52,15 @@ func (self *GoroutingProd) Start() error {
 	for w := 1; w <= self.coRoutingCount; w++ {
 		go self.worker(prod,w, self.msgChan)
 	}
+	go func() {
+		for{
+			sed:= <- self.timeoutSyncChan
+			self.resultLock.Lock()
+			delete(self.mapResult,sed)
+			glog.Errorf("seedMsg is sync timeout and be deleted")
+			self.resultLock.Unlock()
+		}
+	}()
 	return nil
 }
 
@@ -92,10 +103,14 @@ func (self *GoroutingProd) awaitSendResult(msgRes *MsgRes) *SendResult{
 		result=self.mapResult[msgRes.sed]
 		self.resultLock.RUnlock()
 		if result!=nil{
+			self.resultLock.Lock()
+			delete(self.mapResult,msgRes.sed)
+			self.resultLock.Unlock()
 			return result
 		}
 		time.Sleep(time.Nanosecond)
 	}
-	glog.Errorf("errorSynctimeout\n")
+	self.timeoutSyncChan<-msgRes.sed
+	glog.Errorf("errorSynctimeout for 1s:%v\n",msgRes)
 	return nil
 }
