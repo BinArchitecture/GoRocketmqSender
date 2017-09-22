@@ -17,27 +17,25 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	producer.Start()
-	//var cc int32 = 0
-	jobs := make(chan *rocketmq.Message,10000)
-	results := make(chan *rocketmq.SendResult,10000)
-	for w := 1; w <= 10000; w++ {
-		go worker(producer,w, jobs, results)
+	prod,er:=rocketmq.NewRoutingProducer(producer,10000)
+	if er != nil {
+		panic(er)
 	}
-	size:=50000
+	prod.Start()
+	size:=200000
+	results := make(chan *rocketmq.SendResult,10000)
 	go func() {
 		for {
 			result := <-results
 			jj, er := json.Marshal(result)
 			if er == nil && jj != nil {
-				//fmt.Printf("result:%s\n",string(jj))
+				fmt.Printf("result:%s\n",string(jj))
 			} else if err != nil {
 				fmt.Errorf("err is:%v", err)
 			}
 		}
 	}()
 
-	for i:=0;i<4;i++{
 		for j := 1; j <= size; j++ {
 			props := make(map[string]string)
 			props["fuck"] = "asd"
@@ -45,25 +43,14 @@ func main() {
 			d = d + "大神哈哈fuck"
 			body := []byte(d)
 			msg := &rocketmq.Message{"mqfuck", 0, props, body}
-			//fmt.Printf("joblen:%d\n",len(jobs))
-			jobs <- msg
+			result,_:=prod.Send(msg)
+			results<-result
 		}
 		time.Sleep(5*time.Second)
-	}
 
 	for{
 		time.Sleep(time.Second)
-		fmt.Printf("joblen:%d\n",len(jobs))
+		fmt.Printf("resultLen:%d\n",len(results))
 	}
-	//close(jobs)
 
-}
-
-func worker(producer rocketmq.Producer,id int, jobs <-chan *rocketmq.Message, results chan<- *rocketmq.SendResult) {
-	for {
-		msg := <- jobs
-		fmt.Println("worker", id, "processing job", string(msg.Body))
-		result,_:=producer.Send(msg)
-		results <- result
-	}
 }

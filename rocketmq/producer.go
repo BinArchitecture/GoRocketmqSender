@@ -34,7 +34,7 @@ type DefaultProducer struct {
 	producerGroup             string
 	namesrvAddr               string
 	prodInstanceName          string
-	TopicPublishInfoTable     map[string]*TopicPublishInfo
+	topicPublishInfoTable     map[string]*TopicPublishInfo
 	topicPublishInfoTableLock *sync.RWMutex
 	sendMsgTimeout            int
 	defaultTopicQueueNums     int
@@ -59,14 +59,14 @@ func NewDefaultProducer(producerGroup string, namesrvAddr string, prodInstanceNa
 	producer.producerGroup=producerGroup
 	producer.namesrvAddr=namesrvAddr
 	producer.prodInstanceName=prodInstanceName
-	producer.TopicPublishInfoTable =make(map[string]*TopicPublishInfo)
+	producer.topicPublishInfoTable =make(map[string]*TopicPublishInfo)
 	producer.sendMsgTimeout=3000
 	producer.defaultTopicQueueNums=4
 	producer.brokers=make(map[string]net.Conn)
 	producer.remotingClient=remotingClient
 	producer.mqClient=mqClient
 	producer.topicPublishInfoTableLock=new(sync.RWMutex)
-	producer.TopicPublishInfoTable["TBW102"]=new(TopicPublishInfo)
+	producer.topicPublishInfoTable["TBW102"]=new(TopicPublishInfo)
 	mqClient.remotingClient = remotingClient
 	mqClient.producerTable=make(map[string]*DefaultProducer)
 	mqClient.conf = conf
@@ -178,15 +178,15 @@ func (self *DefaultProducer) tryToFindTopicPublishInfo(topic string) (*TopicPubl
 	}
 
 	self.topicPublishInfoTableLock.RLock()
-	info,ok :=self.TopicPublishInfoTable[topic]
+	info,ok :=self.topicPublishInfoTable[topic]
 	self.topicPublishInfoTableLock.RUnlock()
 	if !ok{
 		self.topicPublishInfoTableLock.Lock()
-		self.TopicPublishInfoTable[topic]=new(TopicPublishInfo)
+		self.topicPublishInfoTable[topic]=new(TopicPublishInfo)
 		self.mqClient.updateTopicRouteInfoFromNameServerByTopic(topic,false)
 		self.topicPublishInfoTableLock.Unlock()
 		self.topicPublishInfoTableLock.RLock()
-		info=self.TopicPublishInfoTable[topic]
+		info=self.topicPublishInfoTable[topic]
 		self.topicPublishInfoTableLock.RUnlock()
 	}
 	if info.HaveTopicRouterInfo{
@@ -198,7 +198,7 @@ func (self *DefaultProducer) tryToFindTopicPublishInfo(topic string) (*TopicPubl
 
 func (self *DefaultProducer) UpdateTopicPublishInfo(topic string, info *TopicPublishInfo) {
 	if info != nil{
-		self.TopicPublishInfoTable[topic]=info
+		self.topicPublishInfoTable[topic]=info
 	}
 }
 

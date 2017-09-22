@@ -11,7 +11,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"github.com/BinArchitecture/go_rocket_mq"
 )
 
 type GetRouteInfoRequestHeader struct {
@@ -149,7 +148,7 @@ func (self *MqClient) getTopicRouteInfoFromNameServer(topic string, timeoutMilli
 	}
 
 	remotingCommand := new(RemotingCommand)
-	remotingCommand.Code = rocketmq.GET_ROUTEINTO_BY_TOPIC
+	remotingCommand.Code = GET_ROUTEINTO_BY_TOPIC
 	currOpaque := atomic.AddInt32(&opaque, 1)
 	remotingCommand.Opaque = currOpaque
 	remotingCommand.Flag = 0
@@ -161,7 +160,7 @@ func (self *MqClient) getTopicRouteInfoFromNameServer(topic string, timeoutMilli
 	if err != nil {
 		return nil, err
 	}
-	if response.Code == rocketmq.SUCCESS {
+	if response.Code == SUCCESS {
 		topicRouteData := new(TopicRouteData)
 		bodyjson := strings.Replace(string(response.Body), ",0:", ",\"0\":", -1)
 		bodyjson = strings.Replace(bodyjson, ",1:", ",\"1\":", -1)
@@ -181,7 +180,7 @@ func (self *MqClient) getTopicRouteInfoFromNameServer(topic string, timeoutMilli
 
 func (self *MqClient) updateProducerTopicRouteInfoFromNameServer() {
 	for _, producer := range self.producerTable {
-		topicPublishInfoTable := producer.TopicPublishInfoTable
+		topicPublishInfoTable := producer.topicPublishInfoTable
 		for topic := range topicPublishInfoTable {
 			self.updateTopicRouteInfoFromNameServerByTopic(topic,false)
 		}
