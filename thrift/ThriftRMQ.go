@@ -5,9 +5,9 @@ import (
 	"flag"
 	"runtime"
 	"git.apache.org/thrift.git/lib/go/thrift"
-	"fmt"
 	"os"
 	"github.com/BinArchitecture/GoRocketmqSender/rmq"
+	"github.com/golang/glog"
 )
 
 func main() {
@@ -17,16 +17,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	prod,er:=rocketmq.NewRoutingProducer(producer,1000)
+	prod,er:=rocketmq.NewRoutingProducer(producer,10000)
 	if er != nil {
 		panic(er)
 	}
-	//transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
 	transportFactory := thrift.NewTTransportFactory()
 	protocolFactory := thrift.NewTBinaryProtocolFactory(true, true)
 	serverTransport, err := thrift.NewTServerSocket("10.6.30.109:7912")
 	if err != nil {
-		fmt.Println("Error!", err)
+		glog.Errorf("Error%v!\n", err)
 		os.Exit(1)
 	}
 	handler := &rmq.RmqThriftProdServiceImpl{
@@ -35,6 +34,6 @@ func main() {
 	handler.Start()
 	var processor =rmq.NewRmqThriftProdServiceProcessor(handler)
 	server := thrift.NewTSimpleServer4(processor, serverTransport, transportFactory, protocolFactory)
-	fmt.Println("thrift server start...")
+	glog.Info("thrift server start...")
 	server.Serve()
 }

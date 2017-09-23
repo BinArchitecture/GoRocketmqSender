@@ -17,11 +17,10 @@ func (self *RmqThriftProdServiceImpl) Start() error {
 func (self *RmqThriftProdServiceImpl) Send(msg *RmqMessage) (*RmqSendResult_,error) {
 	msg_:=self.convertMsg(msg)
 	var prod rocketmq.Producer=self.Producer
-	prod.Send(msg_)
-	//sr,_:=prod.Send(msg_)
-	//result:= self.convertResult(sr)
+	sr,_:=prod.Send(msg_)
+	result:= self.convertResult(sr)
 	//fmt.Printf("result is:%v\n",result)
-	return new(RmqSendResult_),nil
+	return result,nil
 }
 
 func (self *RmqThriftProdServiceImpl) convertResult(sr *rocketmq.SendResult) (*RmqSendResult_) {

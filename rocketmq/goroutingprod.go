@@ -1,17 +1,14 @@
 package rocketmq
 
 import (
-	"fmt"
-	//"time"
-	"sync"
-	"sync/atomic"
+	"errors"
 	"github.com/golang/glog"
 	"time"
 )
 
 type MsgRes struct {
 	msg *Message
-	sed int64
+	chanResult chan *SendResult
 }
 
 
@@ -19,10 +16,6 @@ type GoroutingProd struct {
 	producer     Producer
 	msgChan   chan *MsgRes
 	coRoutingCount int
-	mapResult map[int64]*SendResult
-	resultLock sync.RWMutex
-	seed int64
-	timeoutSyncChan chan int64
 }
 
 func NewRoutingProducer(producer Producer,coRoutingCount int) (Producer, error) {
@@ -36,10 +29,8 @@ func NewRoutingProducer(producer Producer,coRoutingCount int) (Producer, error) 
 		chanCount=coRoutingCount
 	}
 	prod.msgChan=make(chan *MsgRes,chanCount)
-	prod.mapResult=make(map[int64]*SendResult)
-	prod.timeoutSyncChan=make(chan int64,1024)
-	prod.seed=0
-	fmt.Printf("successfully inited routingprod\n")
+	//fmt.Printf("successfully inited routingprod\n")
+	glog.Infoln("successfully inited routingprod")
 	return prod, nil
 }
 
@@ -52,21 +43,6 @@ func (self *GoroutingProd) Start() error {
 	for w := 1; w <= self.coRoutingCount; w++ {
 		go self.worker(prod,w, self.msgChan)
 	}
-	//go func() {
-	//	for{
-	//		sed:= <- self.timeoutSyncChan
-	//		self.resultLock.Lock()
-	//		delete(self.mapResult,sed)
-	//		glog.Errorf("seedMsg is sync timeout and be deleted")
-	//		self.resultLock.Unlock()
-	//	}
-	//}()
-	//go func() {
-	//	for{
-	//		fmt.Printf("seed:%d,mapResultSize:%d\n",int(self.seed),len(self.mapResult))
-	//		time.Sleep(time.Second*3)
-	//	}
-	//}()
 	return nil
 }
 
@@ -82,40 +58,25 @@ func (self *GoroutingProd) FetchPublishMessageQueues(topic string) MessageQueues
 
 func (self *GoroutingProd) Send(msg *Message) (*SendResult, error) {
 	msgRes:=new(MsgRes)
-	self.seed=atomic.AddInt64(&self.seed,1)
+	msgRes.chanResult=make(chan *SendResult)
 	msgRes.msg=msg
-	msgRes.sed=self.seed
 	self.msgChan<-msgRes
-	//sendResult:=self.awaitSendResult(msgRes)
-	return nil,nil
+	select {
+	case result:=<-msgRes.chanResult:
+		return result, nil
+	case <-time.After(3 * time.Second):
+		return nil, errors.New("invoke sync timeout")
+	}
 }
 
 func (self *GoroutingProd) worker(producer Producer,id int,chanMsg <- chan *MsgRes) {
 	for {
 		msg := <- chanMsg
-		fmt.Printf("worker:%d processing job:%s\n", id, string(msg.msg.Body))
-		producer.Send(msg.msg)
-		//self.resultLock.Lock()
-		//self.mapResult[msg.sed]=result
-		//self.resultLock.Unlock()
-	}
-}
-
-func (self *GoroutingProd) awaitSendResult(msgRes *MsgRes) *SendResult{
-	var result *SendResult
-	for i:=0;i<1000000000;i++ {
-		self.resultLock.RLock()
-		result=self.mapResult[msgRes.sed]
-		self.resultLock.RUnlock()
-		if result!=nil{
-			self.resultLock.Lock()
-			delete(self.mapResult,msgRes.sed)
-			self.resultLock.Unlock()
-			return result
+		//fmt.Printf("worker:%d processing job:%s\n", id, string(msg.msg.Body))
+		result,err:=producer.Send(msg.msg)
+		if err!=nil{
+			glog.Error(err)
 		}
-		time.Sleep(5*time.Nanosecond)
+		msg.chanResult<-result
 	}
-	self.timeoutSyncChan<-msgRes.sed
-	glog.Errorf("errorSynctimeout for 1s:%v\n",msgRes)
-	return nil
 }
