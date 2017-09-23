@@ -17,12 +17,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	prod,er:=rocketmq.NewRoutingProducer(producer,50000)
+	prod,er:=rocketmq.NewRoutingProducer(producer,1000)
 	if er != nil {
 		panic(er)
 	}
-	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
-	protocolFactory := thrift.NewTBinaryProtocolFactory(false, false)
+	//transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
+	transportFactory := thrift.NewTTransportFactory()
+	protocolFactory := thrift.NewTBinaryProtocolFactory(true, true)
 	serverTransport, err := thrift.NewTServerSocket("10.6.30.109:7912")
 	if err != nil {
 		fmt.Println("Error!", err)

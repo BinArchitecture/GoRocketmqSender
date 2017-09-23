@@ -52,15 +52,21 @@ func (self *GoroutingProd) Start() error {
 	for w := 1; w <= self.coRoutingCount; w++ {
 		go self.worker(prod,w, self.msgChan)
 	}
-	go func() {
-		for{
-			sed:= <- self.timeoutSyncChan
-			self.resultLock.Lock()
-			delete(self.mapResult,sed)
-			glog.Errorf("seedMsg is sync timeout and be deleted")
-			self.resultLock.Unlock()
-		}
-	}()
+	//go func() {
+	//	for{
+	//		sed:= <- self.timeoutSyncChan
+	//		self.resultLock.Lock()
+	//		delete(self.mapResult,sed)
+	//		glog.Errorf("seedMsg is sync timeout and be deleted")
+	//		self.resultLock.Unlock()
+	//	}
+	//}()
+	//go func() {
+	//	for{
+	//		fmt.Printf("seed:%d,mapResultSize:%d\n",int(self.seed),len(self.mapResult))
+	//		time.Sleep(time.Second*3)
+	//	}
+	//}()
 	return nil
 }
 
@@ -80,19 +86,18 @@ func (self *GoroutingProd) Send(msg *Message) (*SendResult, error) {
 	msgRes.msg=msg
 	msgRes.sed=self.seed
 	self.msgChan<-msgRes
-
-	sendResult:=self.awaitSendResult(msgRes)
-	return sendResult,nil
+	//sendResult:=self.awaitSendResult(msgRes)
+	return nil,nil
 }
 
 func (self *GoroutingProd) worker(producer Producer,id int,chanMsg <- chan *MsgRes) {
 	for {
 		msg := <- chanMsg
-		//fmt.Println("worker", id, "processing job", string(msgRes.msg.Body))
-		result,_:=producer.Send(msg.msg)
-		self.resultLock.Lock()
-		self.mapResult[msg.sed]=result
-		self.resultLock.Unlock()
+		fmt.Printf("worker:%d processing job:%s\n", id, string(msg.msg.Body))
+		producer.Send(msg.msg)
+		//self.resultLock.Lock()
+		//self.mapResult[msg.sed]=result
+		//self.resultLock.Unlock()
 	}
 }
 
@@ -108,7 +113,7 @@ func (self *GoroutingProd) awaitSendResult(msgRes *MsgRes) *SendResult{
 			self.resultLock.Unlock()
 			return result
 		}
-		time.Sleep(time.Nanosecond)
+		time.Sleep(5*time.Nanosecond)
 	}
 	self.timeoutSyncChan<-msgRes.sed
 	glog.Errorf("errorSynctimeout for 1s:%v\n",msgRes)
