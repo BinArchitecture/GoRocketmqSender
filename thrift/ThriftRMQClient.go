@@ -23,7 +23,7 @@ func main() {
 	//body := []byte(d)
 	body := []byte("大神哈哈fuck")
 	msg := &rmq.RmqMessage{"mqfuck", 0, props, body}
-	size:=10000
+	size:=30000
 	clientPool,_:=buildClientPool(addr,size,3000)
 	//client,_:=buildClient(addr)
 	wg := sync.WaitGroup{}
@@ -73,5 +73,5 @@ func buildClient(addr string) (*rmq.RmqThriftProdServiceClient,error){
 func buildClientPool(addr string,poolSize int,minSize int) (*rmq.ThriftTransportPool,error){
 	addrs:=make([]string,1)
 	addrs[0]=addr
-	return rmq.NewThriftTransportPool(3 * time.Second,1000,500,30,10*time.Second,addrs),nil
+	return rmq.NewThriftTransportPool(10 * time.Second,1000,500,30,10*time.Second,addrs),nil
 }
