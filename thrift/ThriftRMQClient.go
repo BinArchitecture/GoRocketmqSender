@@ -7,10 +7,6 @@ import (
 	"github.com/BinArchitecture/GoRocketmqSender/rmq"
 	"github.com/golang/glog"
 	"fmt"
-	"time"
-	//"sync"
-	"github.com/BinArchitecture/GoRocketmqSender/rocketmq"
-	"errors"
 	"sync"
 )
 
@@ -25,38 +21,19 @@ func main() {
 	//body := []byte(d)
 	body := []byte("大神哈哈fuck")
 	msg := &rmq.RmqMessage{"mqfuck", 0, props, body}
-	size:=300000
-	clientPool,_:=buildClientPool(addr,5000,3000)
+	size:=30000
 	//client,_:=buildClient(addr)
-	//var errCount int32=0
 	wg := sync.WaitGroup{}
 	wg.Add(size)
-	run := func(entity interface{}) (interface{}, error) {
-		msg := entity.(*rmq.RmqMessage)
-		ttport:=clientPool.Get()
-		if ttport==nil || !ttport.IsOpen(){
-			return nil,errors.New("can't get client")
-		}
-		pF := thrift.NewTBinaryProtocolFactoryDefault()
-		client := rmq.NewRmqThriftProdServiceClientFactory(ttport, pF)
-		result, err := client.Send(msg)
-		if err != nil {
-			glog.Error(err)
-		}
-		clientPool.Release(ttport)
-		return result, err
-	}
-	goRoutingPool, _ := rocketmq.NewGoCoRoutingPool(4000, run)
-	goRoutingPool.Start()
+	cc,_:=rmq.NewGoCoRoutingRmqProdClient(addr,5000,3000,4000)
 	for j:=0;j<size;j++{
 		go func() {
 			defer wg.Done()
-			rmr,_:=goRoutingPool.Do(msg)
-			if rmr==nil{
+			rmresult,_:=cc.SendMsg(msg)
+			if rmresult==nil{
 				fmt.Errorf("rmresult send Fail\n")
 				return
 			}
-			rmresult:=rmr.(*rmq.RmqSendResult_)
 			fmt.Printf("rmresult:%v\n",rmresult)
 			if !rmresult.IsSendOK{
 				fmt.Errorf("rmresult:%v send Fail\n",rmresult)
@@ -64,8 +41,7 @@ func main() {
 		}()
 	}
 	wg.Wait()
-	clientPool.Destory()
-	//client.Transport.Close()
+	cc.ShutDown()
 }
 
 func buildClient(addr string) (*rmq.RmqThriftProdServiceClient,error){
@@ -83,10 +59,4 @@ func buildClient(addr string) (*rmq.RmqThriftProdServiceClient,error){
 		return nil,err
 	}
 	return client,nil
-}
-
-func buildClientPool(addr string,poolSize int,minSize int) (*rmq.ThriftTransportPool,error){
-	addrs:=make([]string,1)
-	addrs[0]=addr
-	return rmq.NewThriftTransportPool(30 * time.Second,poolSize,minSize,30,10*time.Second,addrs),nil
 }
