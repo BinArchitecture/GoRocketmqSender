@@ -33,7 +33,7 @@ func NewRoutingPoolProducer(coRoutingCount int, prodGroup string, nameAddr strin
 		return result, err
 	}
 	prod.goRoutingPool, _ = NewGoCoRoutingPool(prod.coRoutingCount, run)
-	glog.Infoln("successfully inited routingprod")
+	glog.Infoln("successfully inited GoRoutingPoolProd")
 	return prod, nil
 }
 

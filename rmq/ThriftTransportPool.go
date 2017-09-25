@@ -58,12 +58,12 @@ func doCheck(poolSize int, pool *ThriftTransportPool, maxIdleSecond int, minSize
 				if pool.getActiveCount() > minSize {
 					pool.pool[i].transport.Close()
 					pool.pool[i].isBusy = false
-					glog.Infoln("%s超过空闲时间阀值被断开！", pool.pool[i].addr)
+					glog.Infoln("超过空闲时间阀值被断开！", pool.pool[i].addr)
 				}
 			}
 		}
 	}
-	glog.Infoln("当前活动连接数：%d", pool.getActiveCount())
+	glog.Infoln("当前活动连接数:", pool.getActiveCount())
 }
 
 func (self *ThriftTransportPool) getActiveCount() int {

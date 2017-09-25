@@ -8,8 +8,10 @@ import (
 	"github.com/golang/glog"
 	"fmt"
 	"time"
+	//"sync"
+	"github.com/BinArchitecture/GoRocketmqSender/rocketmq"
+	"errors"
 	"sync"
-	"sync/atomic"
 )
 
 func main() {
@@ -23,34 +25,47 @@ func main() {
 	//body := []byte(d)
 	body := []byte("大神哈哈fuck")
 	msg := &rmq.RmqMessage{"mqfuck", 0, props, body}
-	size:=30000
-	clientPool,_:=buildClientPool(addr,size,3000)
+	size:=300000
+	clientPool,_:=buildClientPool(addr,5000,3000)
 	//client,_:=buildClient(addr)
+	//var errCount int32=0
 	wg := sync.WaitGroup{}
 	wg.Add(size)
-	var errCount int32=0
+	run := func(entity interface{}) (interface{}, error) {
+		msg := entity.(*rmq.RmqMessage)
+		ttport:=clientPool.Get()
+		if ttport==nil || !ttport.IsOpen(){
+			return nil,errors.New("can't get client")
+		}
+		pF := thrift.NewTBinaryProtocolFactoryDefault()
+		client := rmq.NewRmqThriftProdServiceClientFactory(ttport, pF)
+		result, err := client.Send(msg)
+		if err != nil {
+			glog.Error(err)
+		}
+		clientPool.Release(ttport)
+		return result, err
+	}
+	goRoutingPool, _ := rocketmq.NewGoCoRoutingPool(4000, run)
+	goRoutingPool.Start()
 	for j:=0;j<size;j++{
 		go func() {
 			defer wg.Done()
-			ttport:=clientPool.Get()
-			if ttport==nil{
-				errCount=atomic.AddInt32(&errCount,1)
+			rmr,_:=goRoutingPool.Do(msg)
+			if rmr==nil{
+				fmt.Errorf("rmresult send Fail\n")
 				return
 			}
-			pF := thrift.NewTBinaryProtocolFactoryDefault()
-			client := rmq.NewRmqThriftProdServiceClientFactory(ttport, pF)
-			rmresult,_:=client.Send(msg)
+			rmresult:=rmr.(*rmq.RmqSendResult_)
 			fmt.Printf("rmresult:%v\n",rmresult)
-			clientPool.Release(ttport)
+			if !rmresult.IsSendOK{
+				fmt.Errorf("rmresult:%v send Fail\n",rmresult)
+			}
 		}()
 	}
 	wg.Wait()
 	clientPool.Destory()
-	fmt.Printf("errCount:%d",int(errCount))
 	//client.Transport.Close()
-	//for{
-	//	time.Sleep(time.Second)
-	//}
 }
 
 func buildClient(addr string) (*rmq.RmqThriftProdServiceClient,error){
@@ -73,5 +88,5 @@ func buildClient(addr string) (*rmq.RmqThriftProdServiceClient,error){
 func buildClientPool(addr string,poolSize int,minSize int) (*rmq.ThriftTransportPool,error){
 	addrs:=make([]string,1)
 	addrs[0]=addr
-	return rmq.NewThriftTransportPool(10 * time.Second,1000,500,30,10*time.Second,addrs),nil
+	return rmq.NewThriftTransportPool(30 * time.Second,poolSize,minSize,30,10*time.Second,addrs),nil
 }

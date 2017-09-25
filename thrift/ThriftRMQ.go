@@ -21,7 +21,7 @@ func main() {
 	//if er != nil {
 	//	panic(er)
 	//}
-	prod,er:=rocketmq.NewRoutingPoolProducer(10000,"test1Group", "10.6.30.109:9876","prodInstance")
+	prod,er:=rocketmq.NewRoutingPoolProducer(50000,"test1Group", "10.6.30.109:9876","prodInstance")
 	if er != nil {
 		panic(er)
 	}

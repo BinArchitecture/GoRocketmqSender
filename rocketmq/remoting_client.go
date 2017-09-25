@@ -74,15 +74,21 @@ func (self *DefalutRemotingClient) connect(addr string) (conn net.Conn, err erro
 	self.connTableLock.RUnlock()
 	if !ok {
 		self.connTableLock.Lock()
+		if conn, ok := self.connTable[addr];ok{
+			defer self.connTableLock.Unlock()
+			return conn,nil
+		}
 		conn, err = net.Dial("tcp", addr)
 		if err != nil {
 			glog.Error(err)
 			return nil, err
 		}
+		//fmt.Printf("connect to:%s\n", addr)
 		self.connTable[addr] = conn
-		self.connTableLock.Unlock()
-		glog.Info("connect to:", addr)
 		go self.handlerConn(conn, addr)
+		glog.Infoln("start handelConn:", addr)
+		glog.Infoln("connect to:", addr)
+		self.connTableLock.Unlock()
 	}
 
 	return conn, nil
