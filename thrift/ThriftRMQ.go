@@ -13,14 +13,6 @@ import (
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	flag.Parse()
-	//producer, err := rocketmq.NewDefaultProducer("test1Group", "10.6.30.109:9876","prodInstance")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//prod,er:=rocketmq.NewRoutingProducer(producer,10000)
-	//if er != nil {
-	//	panic(er)
-	//}
 	prod,er:=rocketmq.NewRoutingPoolProducer(50000,"test1Group", "10.6.30.109:9876","prodInstance")
 	if er != nil {
 		panic(er)
