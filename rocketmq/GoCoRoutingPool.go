@@ -39,11 +39,16 @@ func (self *GoCoRoutingPool) Shutdown() {
 
 func (self *GoCoRoutingPool) Do(entity interface{}) (result interface{},err error){
 	coGoEntity:=new(CoGoEntity)
-	coGoEntity.resultChan=make(chan interface{})
+	coGoEntity.resultChan=make(chan interface{},2)
 	coGoEntity.entity=entity
 	self.entityChan<-coGoEntity
-	res:=<-coGoEntity.resultChan
-	return res, nil
+	result=<-coGoEntity.resultChan
+	if result!=nil{
+		return result,nil
+	}
+	er:=<-coGoEntity.resultChan
+	err=er.(error)
+	return result, err
 	//select {
 	//	case self.entityChan<-coGoEntity:
 	//		break
@@ -67,7 +72,10 @@ func work(id int,entityChan chan *CoGoEntity,run func(entity interface{}) (inter
 		result,err:=run(entity.entity)
 		if err!=nil{
 			glog.Error(err)
+			entity.resultChan<-nil
+			entity.resultChan<-err
+		}else{
+			entity.resultChan<-result
 		}
-		entity.resultChan<-result
 	}
 }

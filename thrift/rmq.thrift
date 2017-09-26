@@ -13,6 +13,7 @@ struct RmqSendResult{
      2: string QueueId,
      3: string QueueOffset,
      4: bool IsSendOK
+     5: string ErrMsg
     }
 service RmqThriftProdService{
      RmqSendResult send(1: RmqMessage msg)

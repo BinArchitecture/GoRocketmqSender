@@ -77,13 +77,13 @@ func (self *MqClient) findBrokerAddressInSubscribe(brokerName string, brokerId i
 	self.brokerAddrTableLock.RUnlock()
 	if ok {
 		brokerAddr, ok = brokerMap[strconv.FormatInt(brokerId, 10)]
-		slave = (brokerId != 0)
+		slave = brokerId != 0
 		found = ok
 
 		if !found && !onlyThisBroker {
 			var id string
 			for id, brokerAddr = range brokerMap {
-				slave = (id != "0")
+				slave = id != "0"
 				found = true
 				break
 			}
@@ -192,6 +192,7 @@ func (self *MqClient) updateTopicRouteInfoFromNameServerByTopic(topic string,isC
 	topicRouteData, err := self.getTopicRouteInfoFromNameServer(topic, 3000*1000)
 	if err != nil {
 		glog.Error(err)
+		//debug.PrintStack()
 		return err
 	}
 

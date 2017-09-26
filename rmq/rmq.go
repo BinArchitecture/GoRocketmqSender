@@ -224,11 +224,13 @@ func (p *RmqMessage) String() string {
 //  - QueueId
 //  - QueueOffset
 //  - IsSendOK
+//  - ErrMsg
 type RmqSendResult_ struct {
   MsgId string `thrift:"MsgId,1" db:"MsgId" json:"MsgId"`
   QueueId string `thrift:"QueueId,2" db:"QueueId" json:"QueueId"`
   QueueOffset string `thrift:"QueueOffset,3" db:"QueueOffset" json:"QueueOffset"`
   IsSendOK bool `thrift:"IsSendOK,4" db:"IsSendOK" json:"IsSendOK"`
+  ErrMsg string `thrift:"ErrMsg,5" db:"ErrMsg" json:"ErrMsg"`
 }
 
 func NewRmqSendResult_() *RmqSendResult_ {
@@ -250,6 +252,10 @@ func (p *RmqSendResult_) GetQueueOffset() string {
 
 func (p *RmqSendResult_) GetIsSendOK() bool {
   return p.IsSendOK
+}
+
+func (p *RmqSendResult_) GetErrMsg() string {
+  return p.ErrMsg
 }
 func (p *RmqSendResult_) Read(iprot thrift.TProtocol) error {
   if _, err := iprot.ReadStructBegin(); err != nil {
@@ -278,6 +284,10 @@ func (p *RmqSendResult_) Read(iprot thrift.TProtocol) error {
       }
     case 4:
       if err := p.ReadField4(iprot); err != nil {
+        return err
+      }
+    case 5:
+      if err := p.ReadField5(iprot); err != nil {
         return err
       }
     default:
@@ -331,6 +341,15 @@ func (p *RmqSendResult_)  ReadField4(iprot thrift.TProtocol) error {
   return nil
 }
 
+func (p *RmqSendResult_)  ReadField5(iprot thrift.TProtocol) error {
+  if v, err := iprot.ReadString(); err != nil {
+  return thrift.PrependError("error reading field 5: ", err)
+} else {
+  p.ErrMsg = v
+}
+  return nil
+}
+
 func (p *RmqSendResult_) Write(oprot thrift.TProtocol) error {
   if err := oprot.WriteStructBegin("RmqSendResult"); err != nil {
     return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
@@ -339,6 +358,7 @@ func (p *RmqSendResult_) Write(oprot thrift.TProtocol) error {
     if err := p.writeField2(oprot); err != nil { return err }
     if err := p.writeField3(oprot); err != nil { return err }
     if err := p.writeField4(oprot); err != nil { return err }
+    if err := p.writeField5(oprot); err != nil { return err }
   }
   if err := oprot.WriteFieldStop(); err != nil {
     return thrift.PrependError("write field stop error: ", err) }
@@ -384,6 +404,16 @@ func (p *RmqSendResult_) writeField4(oprot thrift.TProtocol) (err error) {
   return thrift.PrependError(fmt.Sprintf("%T.IsSendOK (4) field write error: ", p), err) }
   if err := oprot.WriteFieldEnd(); err != nil {
     return thrift.PrependError(fmt.Sprintf("%T write field end error 4:IsSendOK: ", p), err) }
+  return err
+}
+
+func (p *RmqSendResult_) writeField5(oprot thrift.TProtocol) (err error) {
+  if err := oprot.WriteFieldBegin("ErrMsg", thrift.STRING, 5); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field begin error 5:ErrMsg: ", p), err) }
+  if err := oprot.WriteString(string(p.ErrMsg)); err != nil {
+  return thrift.PrependError(fmt.Sprintf("%T.ErrMsg (5) field write error: ", p), err) }
+  if err := oprot.WriteFieldEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field end error 5:ErrMsg: ", p), err) }
   return err
 }
 

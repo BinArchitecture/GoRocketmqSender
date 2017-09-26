@@ -19,7 +19,13 @@ func (self *RmqThriftProdServiceImpl) Start() error {
 func (self *RmqThriftProdServiceImpl) Send(msg *RmqMessage) (*RmqSendResult_,error) {
 	msg_:=self.convertMsg(msg)
 	var prod rocketmq.Producer=self.Producer
-	sr,_:=prod.Send(msg_)
+	sr,err:=prod.Send(msg_)
+	if err!=nil{
+		result:=new(RmqSendResult_)
+		result.IsSendOK=false
+		result.ErrMsg=err.Error()
+		return result,nil
+	}
 	result:= self.convertResult(sr)
 	//fmt.Printf("result is:%v\n",result)
 	return result,nil
@@ -32,13 +38,22 @@ func (self *RmqThriftProdServiceImpl) SendOrderly(msg *RmqMessage, orderKey int3
 	}
 	msg_:=self.convertMsg(msg)
 	var prod rocketmq.Producer=self.Producer
-	sr,_:=prod.SendOrderly(msg_,int(orderKey))
+	sr,err:=prod.SendOrderly(msg_,int(orderKey))
+	if err!=nil{
+		result:=new(RmqSendResult_)
+		result.IsSendOK=false
+		result.ErrMsg=err.Error()
+		return result,nil
+	}
 	result:= self.convertResult(sr)
 	//fmt.Printf("result is:%v\n",result)
 	return result,nil
 }
 
 func (self *RmqThriftProdServiceImpl) convertResult(sr *rocketmq.SendResult) (*RmqSendResult_) {
+	if sr==nil{
+		return nil
+	}
 	rs:=new(RmqSendResult_)
 	rs.QueueId=sr.QueueId
 	rs.IsSendOK=sr.IsSendOK

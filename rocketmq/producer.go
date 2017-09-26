@@ -100,10 +100,11 @@ func (self *DefaultProducer) sendmm(msg *Message,orderKey int) (*SendResult,erro
 	//maxTimeout := self.sendMsgTimeout+ 10000000
 	//beginTimestamp := time.Now()
 	// endTimestamp := beginTimestamp
-	info := self.tryToFindTopicPublishInfo(msg.Topic)
-	var err error
+	info,err := self.tryToFindTopicPublishInfo(msg.Topic)
 	var respcmd *RemotingCommand
-
+	if err!=nil{
+		return nil,err
+	}
 	//fmt.Printf("info:%b",info==nil)
 	if info != nil {
 		mq,_:=info.SelectOneMessageQueue(orderKey)
@@ -162,7 +163,7 @@ func (self *DefaultProducer) sendKernel(msg *Message,mq *MessageQueue,isSync boo
 
 }
 
-func (self *DefaultProducer) tryToFindTopicPublishInfo(topic string) (*TopicPublishInfo){
+func (self *DefaultProducer) tryToFindTopicPublishInfo(topic string) (*TopicPublishInfo,error){
 	self.mqClient.producerTableLock.RLock()
 	_,oo:=self.mqClient.producerTable[topic]
 	self.mqClient.producerTableLock.RUnlock()
@@ -171,23 +172,23 @@ func (self *DefaultProducer) tryToFindTopicPublishInfo(topic string) (*TopicPubl
 		self.mqClient.producerTable[topic]=self
 		self.mqClient.producerTableLock.Unlock()
 	}
-
+	var err error
 	self.topicPublishInfoTableLock.RLock()
 	info,ok :=self.topicPublishInfoTable[topic]
 	self.topicPublishInfoTableLock.RUnlock()
 	if !ok{
 		self.topicPublishInfoTableLock.Lock()
 		self.topicPublishInfoTable[topic]=new(TopicPublishInfo)
-		self.mqClient.updateTopicRouteInfoFromNameServerByTopic(topic,false)
+		err=self.mqClient.updateTopicRouteInfoFromNameServerByTopic(topic,false)
 		self.topicPublishInfoTableLock.Unlock()
 		self.topicPublishInfoTableLock.RLock()
 		info=self.topicPublishInfoTable[topic]
 		self.topicPublishInfoTableLock.RUnlock()
 	}
 	if info.HaveTopicRouterInfo{
-		return info
+		return info,nil
 	}else{
-		return nil
+		return nil,err
 	}
 }
 
