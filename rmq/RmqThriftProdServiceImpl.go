@@ -2,6 +2,8 @@ package rmq
 
 import (
 	"github.com/BinArchitecture/GoRocketmqSender/rocketmq"
+	"github.com/golang/glog"
+	"errors"
 )
 
 type RmqThriftProdServiceImpl struct {
@@ -24,7 +26,16 @@ func (self *RmqThriftProdServiceImpl) Send(msg *RmqMessage) (*RmqSendResult_,err
 }
 
 func (self *RmqThriftProdServiceImpl) SendOrderly(msg *RmqMessage, orderKey int32) (r *RmqSendResult_, err error){
-	return nil,nil
+	if orderKey<0{
+		glog.Errorln("orderKey<0 err:",msg,orderKey)
+		return nil,errors.New("orderKey<0 error")
+	}
+	msg_:=self.convertMsg(msg)
+	var prod rocketmq.Producer=self.Producer
+	sr,_:=prod.SendOrderly(msg_,int(orderKey))
+	result:= self.convertResult(sr)
+	//fmt.Printf("result is:%v\n",result)
+	return result,nil
 }
 
 func (self *RmqThriftProdServiceImpl) convertResult(sr *rocketmq.SendResult) (*RmqSendResult_) {

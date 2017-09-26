@@ -4,6 +4,11 @@ import (
 	"github.com/golang/glog"
 )
 
+type GoRoutingMsg struct {
+	orderKey int
+	msg  *Message
+}
+
 type GoRoutingPoolProd struct {
 	producer       Producer
 	coRoutingCount int
@@ -25,8 +30,14 @@ func NewRoutingPoolProducer(coRoutingCount int,coQueueSize int,prodGroup string,
 	}
 	prod.coRoutingCount = chanCount
 	run := func(entity interface{}) (interface{}, error) {
-		msg := entity.(*Message)
-		result, err := prod.producer.Send(msg)
+		msg := entity.(*GoRoutingMsg)
+		var result *SendResult
+		var err error
+		if msg.orderKey==-1{
+			result,err= prod.producer.Send(msg.msg)
+		}else{
+			result,err= prod.producer.SendOrderly(msg.msg,msg.orderKey)
+		}
 		if err != nil {
 			glog.Error(err)
 		}
@@ -55,7 +66,21 @@ func (self *GoRoutingPoolProd) FetchPublishMessageQueues(topic string) MessageQu
 }
 
 func (self *GoRoutingPoolProd) Send(msg *Message) (*SendResult, error) {
-	result, err := self.goRoutingPool.Do(msg)
+	mmsg:=new(GoRoutingMsg)
+	mmsg.orderKey=-1
+	mmsg.msg=msg
+	result, err := self.goRoutingPool.Do(mmsg)
+	if res, ok := result.(*SendResult); ok {
+		return res, err
+	}
+	return nil, err
+}
+
+func (self *GoRoutingPoolProd) SendOrderly(msg *Message,orderKey int) (*SendResult,error) {
+	mmsg:=new(GoRoutingMsg)
+	mmsg.orderKey=orderKey
+	mmsg.msg=msg
+	result, err := self.goRoutingPool.Do(mmsg)
 	if res, ok := result.(*SendResult); ok {
 		return res, err
 	}

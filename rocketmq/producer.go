@@ -27,7 +27,7 @@ type Producer interface {
 	Shutdown()
 	FetchPublishMessageQueues(topic string) MessageQueues
 	Send(msg *Message) (*SendResult,error)
-	//SendAsync(msg *Message,invoke InvokeCallback) error
+	SendOrderly(msg *Message,orderKey int) (*SendResult,error)
 }
 
 type DefaultProducer struct {
@@ -87,21 +87,16 @@ func (self *DefaultProducer) FetchPublishMessageQueues(topic string) MessageQueu
 	return nil
 }
 
-func (self *DefaultProducer) SendAsync(msg *Message,invoke InvokeCallback) error{
-	//maxTimeout := self.sendMsgTimeout+ 10000000
-	//beginTimestamp := time.Now()
-	// endTimestamp := beginTimestamp
-	info := self.tryToFindTopicPublishInfo(msg.Topic)
-	var err error
-	if info != nil {
-		mq,_:=info.SelectOneMessageQueue("")
-		_,err=self.sendKernel(msg,mq,false,invoke)
-	}
-	return err
+func (self *DefaultProducer) SendOrderly(msg *Message,orderKey int) (*SendResult,error){
+	return self.sendmm(msg,orderKey)
 }
 
 
 func (self *DefaultProducer) Send(msg *Message) (*SendResult,error){
+	return self.sendmm(msg,-1)
+}
+
+func (self *DefaultProducer) sendmm(msg *Message,orderKey int) (*SendResult,error){
 	//maxTimeout := self.sendMsgTimeout+ 10000000
 	//beginTimestamp := time.Now()
 	// endTimestamp := beginTimestamp
@@ -111,7 +106,7 @@ func (self *DefaultProducer) Send(msg *Message) (*SendResult,error){
 
 	//fmt.Printf("info:%b",info==nil)
 	if info != nil {
-		mq,_:=info.SelectOneMessageQueue("")
+		mq,_:=info.SelectOneMessageQueue(orderKey)
 		respcmd,err=self.sendKernel(msg,mq,true,nil)
 		if err!=nil{
 			fmt.Errorf("mqSendErr:%s",err.Error())

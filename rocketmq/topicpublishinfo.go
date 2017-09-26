@@ -2,7 +2,6 @@ package rocketmq
 
 import (
 	"sync/atomic"
-	"github.com/golang/glog"
 )
 
 type TopicPublishInfo struct {
@@ -12,18 +11,11 @@ type TopicPublishInfo struct {
 	SendWhichQueue   int32
 }
 
-func (self *TopicPublishInfo) SelectOneMessageQueue(lastBrokerName string) (*MessageQueue, error) {
-	if lastBrokerName != "" {
-		index := atomic.AddInt32(&self.SendWhichQueue,1)
-		for _,v := range self.MessageQueueList {
-			glog.Info(v)
-		   pos := int(index) % self.MessageQueueList.Len()
-		   mq := self.MessageQueueList[pos]
-		if mq.brokerName!=lastBrokerName {
+func (self *TopicPublishInfo) SelectOneMessageQueue(orderKey int) (*MessageQueue, error) {
+	if orderKey >0 {
+		pos := orderKey % self.MessageQueueList.Len()
+		mq := self.MessageQueueList[pos]
 		return mq,nil
-		}
-		}
-		return self.MessageQueueList[0],nil
 	}else {
 		index := atomic.AddInt32(&self.SendWhichQueue,1)
 		pos := int(index) % self.MessageQueueList.Len()

@@ -9,6 +9,11 @@ import (
 	"github.com/BinArchitecture/GoRocketmqSender/rocketmq"
 )
 
+type GoRoutingRmqMsg struct {
+	odrKey int
+	rmqMsg *RmqMessage
+}
+
 type GoCoRoutingRmqProdClient struct{
 	thriftClientPool *ThriftTransportPool
 	coRoutingPool *rocketmq.GoCoRoutingPool
@@ -30,14 +35,20 @@ func NewGoCoRoutingRmqProdClient(addr string,poolSize int,minSize int,coRotingSi
 	}
 	cc.thriftClientPool=buildClientPool(addr,poolSize,minSize)
 	run := func(entity interface{}) (interface{}, error) {
-		msg := entity.(*RmqMessage)
+		msg := entity.(*GoRoutingRmqMsg)
 		ttport:=cc.thriftClientPool.Get()
 		if ttport==nil || !ttport.IsOpen(){
 			return nil,errors.New("can't get client")
 		}
 		pF := thrift.NewTBinaryProtocolFactoryDefault()
 		client := NewRmqThriftProdServiceClientFactory(ttport, pF)
-		result, err := client.Send(msg)
+		var result *RmqSendResult_
+		var err error
+		if msg.odrKey==-1{
+			result, err = client.Send(msg.rmqMsg)
+		}else{
+			result, err = client.SendOrderly(msg.rmqMsg,int32(msg.odrKey))
+		}
 		if err != nil {
 			glog.Error(err)
 		}
@@ -62,7 +73,23 @@ func buildClientPool(addr string,poolSize int,minSize int) (*ThriftTransportPool
 }
 
 func (self *GoCoRoutingRmqProdClient) SendMsg(msg *RmqMessage) (*RmqSendResult_,error){
-	rmr,_:=self.coRoutingPool.Do(msg)
+	mmsg:=new(GoRoutingRmqMsg)
+	mmsg.rmqMsg=msg
+	mmsg.odrKey=-1
+	rmr,_:=self.coRoutingPool.Do(mmsg)
+	if rmr==nil{
+		fmt.Errorf("rmresult send Fail\n")
+		return nil,errors.New("rmresult send Fail\n")
+	}
+	rmresult:=rmr.(*RmqSendResult_)
+	return rmresult,nil
+}
+
+func (self *GoCoRoutingRmqProdClient) SendMsgOdrly(msg *RmqMessage,odrkey int) (*RmqSendResult_,error){
+	mmsg:=new(GoRoutingRmqMsg)
+	mmsg.rmqMsg=msg
+	mmsg.odrKey=odrkey
+	rmr,_:=self.coRoutingPool.Do(mmsg)
 	if rmr==nil{
 		fmt.Errorf("rmresult send Fail\n")
 		return nil,errors.New("rmresult send Fail\n")
