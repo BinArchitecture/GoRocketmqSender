@@ -398,6 +398,10 @@ type RmqThriftProdService interface {
   // Parameters:
   //  - Msg
   Send(msg *RmqMessage) (r *RmqSendResult_, err error)
+  // Parameters:
+  //  - Msg
+  //  - OrderKey
+  SendOrderly(msg *RmqMessage, orderKey int32) (r *RmqSendResult_, err error)
 }
 
 type RmqThriftProdServiceClient struct {
@@ -502,6 +506,85 @@ func (p *RmqThriftProdServiceClient) recvSend() (value *RmqSendResult_, err erro
   return
 }
 
+// Parameters:
+//  - Msg
+//  - OrderKey
+func (p *RmqThriftProdServiceClient) SendOrderly(msg *RmqMessage, orderKey int32) (r *RmqSendResult_, err error) {
+  if err = p.sendSendOrderly(msg, orderKey); err != nil { return }
+  return p.recvSendOrderly()
+}
+
+func (p *RmqThriftProdServiceClient) sendSendOrderly(msg *RmqMessage, orderKey int32)(err error) {
+  oprot := p.OutputProtocol
+  if oprot == nil {
+    oprot = p.ProtocolFactory.GetProtocol(p.Transport)
+    p.OutputProtocol = oprot
+  }
+  p.SeqId++
+  if err = oprot.WriteMessageBegin("sendOrderly", thrift.CALL, p.SeqId); err != nil {
+      return
+  }
+  args := RmqThriftProdServiceSendOrderlyArgs{
+  Msg : msg,
+  OrderKey : orderKey,
+  }
+  if err = args.Write(oprot); err != nil {
+      return
+  }
+  if err = oprot.WriteMessageEnd(); err != nil {
+      return
+  }
+  return oprot.Flush()
+}
+
+
+func (p *RmqThriftProdServiceClient) recvSendOrderly() (value *RmqSendResult_, err error) {
+  iprot := p.InputProtocol
+  if iprot == nil {
+    iprot = p.ProtocolFactory.GetProtocol(p.Transport)
+    p.InputProtocol = iprot
+  }
+  method, mTypeId, seqId, err := iprot.ReadMessageBegin()
+  if err != nil {
+    return
+  }
+  if method != "sendOrderly" {
+    err = thrift.NewTApplicationException(thrift.WRONG_METHOD_NAME, "sendOrderly failed: wrong method name")
+    return
+  }
+  if p.SeqId != seqId {
+    err = thrift.NewTApplicationException(thrift.BAD_SEQUENCE_ID, "sendOrderly failed: out of sequence response")
+    return
+  }
+  if mTypeId == thrift.EXCEPTION {
+    error4 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+    var error5 error
+    error5, err = error4.Read(iprot)
+    if err != nil {
+      return
+    }
+    if err = iprot.ReadMessageEnd(); err != nil {
+      return
+    }
+    err = error5
+    return
+  }
+  if mTypeId != thrift.REPLY {
+    err = thrift.NewTApplicationException(thrift.INVALID_MESSAGE_TYPE_EXCEPTION, "sendOrderly failed: invalid message type")
+    return
+  }
+  result := RmqThriftProdServiceSendOrderlyResult{}
+  if err = result.Read(iprot); err != nil {
+    return
+  }
+  if err = iprot.ReadMessageEnd(); err != nil {
+    return
+  }
+  value = result.GetSuccess()
+  return
+}
+
+
 type RmqThriftProdServiceProcessor struct {
   processorMap map[string]thrift.TProcessorFunction
   handler RmqThriftProdService
@@ -522,25 +605,26 @@ func (p *RmqThriftProdServiceProcessor) ProcessorMap() map[string]thrift.TProces
 
 func NewRmqThriftProdServiceProcessor(handler RmqThriftProdService) *RmqThriftProdServiceProcessor {
 
-  self4 := &RmqThriftProdServiceProcessor{handler:handler, processorMap:make(map[string]thrift.TProcessorFunction)}
-  self4.processorMap["send"] = &rmqThriftProdServiceProcessorSend{handler:handler}
-return self4
+  self6 := &RmqThriftProdServiceProcessor{handler:handler, processorMap:make(map[string]thrift.TProcessorFunction)}
+  self6.processorMap["send"] = &rmqThriftProdServiceProcessorSend{handler:handler}
+  self6.processorMap["sendOrderly"] = &rmqThriftProdServiceProcessorSendOrderly{handler:handler}
+return self6
 }
 
 func (p *RmqThriftProdServiceProcessor) Process(ctx context.Context,iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
   name, _, seqId, err := iprot.ReadMessageBegin()
   if err != nil { return false, err }
   if processor, ok := p.GetProcessorFunction(name); ok {
-    return processor.Process(nil,seqId, iprot, oprot)
+    return processor.Process(ctx,seqId, iprot, oprot)
   }
   iprot.Skip(thrift.STRUCT)
   iprot.ReadMessageEnd()
-  x5 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function " + name)
+  x7 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function " + name)
   oprot.WriteMessageBegin(name, thrift.EXCEPTION, seqId)
-  x5.Write(oprot)
+  x7.Write(oprot)
   oprot.WriteMessageEnd()
   oprot.Flush()
-  return false, x5
+  return false, x7
 
 }
 
@@ -575,6 +659,54 @@ var retval *RmqSendResult_
     result.Success = retval
 }
   if err2 = oprot.WriteMessageBegin("send", thrift.REPLY, seqId); err2 != nil {
+    err = err2
+  }
+  if err2 = result.Write(oprot); err == nil && err2 != nil {
+    err = err2
+  }
+  if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+    err = err2
+  }
+  if err2 = oprot.Flush(); err == nil && err2 != nil {
+    err = err2
+  }
+  if err != nil {
+    return
+  }
+  return true, err
+}
+
+type rmqThriftProdServiceProcessorSendOrderly struct {
+  handler RmqThriftProdService
+}
+
+func (p *rmqThriftProdServiceProcessorSendOrderly) Process(ctx context.Context,seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+  args := RmqThriftProdServiceSendOrderlyArgs{}
+  if err = args.Read(iprot); err != nil {
+    iprot.ReadMessageEnd()
+    x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+    oprot.WriteMessageBegin("sendOrderly", thrift.EXCEPTION, seqId)
+    x.Write(oprot)
+    oprot.WriteMessageEnd()
+    oprot.Flush()
+    return false, err
+  }
+
+  iprot.ReadMessageEnd()
+  result := RmqThriftProdServiceSendOrderlyResult{}
+var retval *RmqSendResult_
+  var err2 error
+  if retval, err2 = p.handler.SendOrderly(args.Msg, args.OrderKey); err2 != nil {
+    x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing sendOrderly: " + err2.Error())
+    oprot.WriteMessageBegin("sendOrderly", thrift.EXCEPTION, seqId)
+    x.Write(oprot)
+    oprot.WriteMessageEnd()
+    oprot.Flush()
+    return true, err2
+  } else {
+    result.Success = retval
+}
+  if err2 = oprot.WriteMessageBegin("sendOrderly", thrift.REPLY, seqId); err2 != nil {
     err = err2
   }
   if err2 = result.Write(oprot); err == nil && err2 != nil {
@@ -779,6 +911,222 @@ func (p *RmqThriftProdServiceSendResult) String() string {
     return "<nil>"
   }
   return fmt.Sprintf("RmqThriftProdServiceSendResult(%+v)", *p)
+}
+
+// Attributes:
+//  - Msg
+//  - OrderKey
+type RmqThriftProdServiceSendOrderlyArgs struct {
+  Msg *RmqMessage `thrift:"msg,1" db:"msg" json:"msg"`
+  OrderKey int32 `thrift:"orderKey,2" db:"orderKey" json:"orderKey"`
+}
+
+func NewRmqThriftProdServiceSendOrderlyArgs() *RmqThriftProdServiceSendOrderlyArgs {
+  return &RmqThriftProdServiceSendOrderlyArgs{}
+}
+
+var RmqThriftProdServiceSendOrderlyArgs_Msg_DEFAULT *RmqMessage
+func (p *RmqThriftProdServiceSendOrderlyArgs) GetMsg() *RmqMessage {
+  if !p.IsSetMsg() {
+    return RmqThriftProdServiceSendOrderlyArgs_Msg_DEFAULT
+  }
+return p.Msg
+}
+
+func (p *RmqThriftProdServiceSendOrderlyArgs) GetOrderKey() int32 {
+  return p.OrderKey
+}
+func (p *RmqThriftProdServiceSendOrderlyArgs) IsSetMsg() bool {
+  return p.Msg != nil
+}
+
+func (p *RmqThriftProdServiceSendOrderlyArgs) Read(iprot thrift.TProtocol) error {
+  if _, err := iprot.ReadStructBegin(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+  }
+
+
+  for {
+    _, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+    if err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+    }
+    if fieldTypeId == thrift.STOP { break; }
+    switch fieldId {
+    case 1:
+      if err := p.ReadField1(iprot); err != nil {
+        return err
+      }
+    case 2:
+      if err := p.ReadField2(iprot); err != nil {
+        return err
+      }
+    default:
+      if err := iprot.Skip(fieldTypeId); err != nil {
+        return err
+      }
+    }
+    if err := iprot.ReadFieldEnd(); err != nil {
+      return err
+    }
+  }
+  if err := iprot.ReadStructEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+  }
+  return nil
+}
+
+func (p *RmqThriftProdServiceSendOrderlyArgs)  ReadField1(iprot thrift.TProtocol) error {
+  p.Msg = &RmqMessage{}
+  if err := p.Msg.Read(iprot); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Msg), err)
+  }
+  return nil
+}
+
+func (p *RmqThriftProdServiceSendOrderlyArgs)  ReadField2(iprot thrift.TProtocol) error {
+  if v, err := iprot.ReadI32(); err != nil {
+  return thrift.PrependError("error reading field 2: ", err)
+} else {
+  p.OrderKey = v
+}
+  return nil
+}
+
+func (p *RmqThriftProdServiceSendOrderlyArgs) Write(oprot thrift.TProtocol) error {
+  if err := oprot.WriteStructBegin("sendOrderly_args"); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
+  if p != nil {
+    if err := p.writeField1(oprot); err != nil { return err }
+    if err := p.writeField2(oprot); err != nil { return err }
+  }
+  if err := oprot.WriteFieldStop(); err != nil {
+    return thrift.PrependError("write field stop error: ", err) }
+  if err := oprot.WriteStructEnd(); err != nil {
+    return thrift.PrependError("write struct stop error: ", err) }
+  return nil
+}
+
+func (p *RmqThriftProdServiceSendOrderlyArgs) writeField1(oprot thrift.TProtocol) (err error) {
+  if err := oprot.WriteFieldBegin("msg", thrift.STRUCT, 1); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:msg: ", p), err) }
+  if err := p.Msg.Write(oprot); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Msg), err)
+  }
+  if err := oprot.WriteFieldEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field end error 1:msg: ", p), err) }
+  return err
+}
+
+func (p *RmqThriftProdServiceSendOrderlyArgs) writeField2(oprot thrift.TProtocol) (err error) {
+  if err := oprot.WriteFieldBegin("orderKey", thrift.I32, 2); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field begin error 2:orderKey: ", p), err) }
+  if err := oprot.WriteI32(int32(p.OrderKey)); err != nil {
+  return thrift.PrependError(fmt.Sprintf("%T.orderKey (2) field write error: ", p), err) }
+  if err := oprot.WriteFieldEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write field end error 2:orderKey: ", p), err) }
+  return err
+}
+
+func (p *RmqThriftProdServiceSendOrderlyArgs) String() string {
+  if p == nil {
+    return "<nil>"
+  }
+  return fmt.Sprintf("RmqThriftProdServiceSendOrderlyArgs(%+v)", *p)
+}
+
+// Attributes:
+//  - Success
+type RmqThriftProdServiceSendOrderlyResult struct {
+  Success *RmqSendResult_ `thrift:"success,0" db:"success" json:"success,omitempty"`
+}
+
+func NewRmqThriftProdServiceSendOrderlyResult() *RmqThriftProdServiceSendOrderlyResult {
+  return &RmqThriftProdServiceSendOrderlyResult{}
+}
+
+var RmqThriftProdServiceSendOrderlyResult_Success_DEFAULT *RmqSendResult_
+func (p *RmqThriftProdServiceSendOrderlyResult) GetSuccess() *RmqSendResult_ {
+  if !p.IsSetSuccess() {
+    return RmqThriftProdServiceSendOrderlyResult_Success_DEFAULT
+  }
+return p.Success
+}
+func (p *RmqThriftProdServiceSendOrderlyResult) IsSetSuccess() bool {
+  return p.Success != nil
+}
+
+func (p *RmqThriftProdServiceSendOrderlyResult) Read(iprot thrift.TProtocol) error {
+  if _, err := iprot.ReadStructBegin(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+  }
+
+
+  for {
+    _, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+    if err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+    }
+    if fieldTypeId == thrift.STOP { break; }
+    switch fieldId {
+    case 0:
+      if err := p.ReadField0(iprot); err != nil {
+        return err
+      }
+    default:
+      if err := iprot.Skip(fieldTypeId); err != nil {
+        return err
+      }
+    }
+    if err := iprot.ReadFieldEnd(); err != nil {
+      return err
+    }
+  }
+  if err := iprot.ReadStructEnd(); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+  }
+  return nil
+}
+
+func (p *RmqThriftProdServiceSendOrderlyResult)  ReadField0(iprot thrift.TProtocol) error {
+  p.Success = &RmqSendResult_{}
+  if err := p.Success.Read(iprot); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Success), err)
+  }
+  return nil
+}
+
+func (p *RmqThriftProdServiceSendOrderlyResult) Write(oprot thrift.TProtocol) error {
+  if err := oprot.WriteStructBegin("sendOrderly_result"); err != nil {
+    return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err) }
+  if p != nil {
+    if err := p.writeField0(oprot); err != nil { return err }
+  }
+  if err := oprot.WriteFieldStop(); err != nil {
+    return thrift.PrependError("write field stop error: ", err) }
+  if err := oprot.WriteStructEnd(); err != nil {
+    return thrift.PrependError("write struct stop error: ", err) }
+  return nil
+}
+
+func (p *RmqThriftProdServiceSendOrderlyResult) writeField0(oprot thrift.TProtocol) (err error) {
+  if p.IsSetSuccess() {
+    if err := oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field begin error 0:success: ", p), err) }
+    if err := p.Success.Write(oprot); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Success), err)
+    }
+    if err := oprot.WriteFieldEnd(); err != nil {
+      return thrift.PrependError(fmt.Sprintf("%T write field end error 0:success: ", p), err) }
+  }
+  return err
+}
+
+func (p *RmqThriftProdServiceSendOrderlyResult) String() string {
+  if p == nil {
+    return "<nil>"
+  }
+  return fmt.Sprintf("RmqThriftProdServiceSendOrderlyResult(%+v)", *p)
 }
 
 

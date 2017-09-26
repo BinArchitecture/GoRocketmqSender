@@ -14,7 +14,7 @@ type GoCoRoutingRmqProdClient struct{
 	coRoutingPool *rocketmq.GoCoRoutingPool
 }
 
-func NewGoCoRoutingRmqProdClient(addr string,poolSize int,minSize int,coRotingSize int) (*GoCoRoutingRmqProdClient, error) {
+func NewGoCoRoutingRmqProdClient(addr string,poolSize int,minSize int,coRotingSize int,queueSize int) (*GoCoRoutingRmqProdClient, error) {
 	cc:=new(GoCoRoutingRmqProdClient)
 	if poolSize<0 {
 		poolSize=200
@@ -24,6 +24,9 @@ func NewGoCoRoutingRmqProdClient(addr string,poolSize int,minSize int,coRotingSi
 	}
 	if poolSize<minSize{
 		poolSize=minSize
+	}
+	if queueSize<coRotingSize{
+		queueSize=coRotingSize
 	}
 	cc.thriftClientPool=buildClientPool(addr,poolSize,minSize)
 	run := func(entity interface{}) (interface{}, error) {
@@ -42,12 +45,12 @@ func NewGoCoRoutingRmqProdClient(addr string,poolSize int,minSize int,coRotingSi
 		return result, err
 	}
 	if coRotingSize>poolSize || coRotingSize<minSize{
-		coRotingSize=poolSize-1000
+		coRotingSize=poolSize-500
 	}
 	if coRotingSize<=0{
 		coRotingSize=100
 	}
-	cc.coRoutingPool,_ = rocketmq.NewGoCoRoutingPool(coRotingSize, run)
+	cc.coRoutingPool,_ = rocketmq.NewGoCoRoutingPool(coRotingSize,queueSize,run)
 	cc.coRoutingPool.Start()
 	return cc,nil
 }

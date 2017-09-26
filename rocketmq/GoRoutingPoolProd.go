@@ -10,7 +10,7 @@ type GoRoutingPoolProd struct {
 	goRoutingPool  *GoCoRoutingPool
 }
 
-func NewRoutingPoolProducer(coRoutingCount int, prodGroup string, nameAddr string, prodInstance string) (Producer, error) {
+func NewRoutingPoolProducer(coRoutingCount int,coQueueSize int,prodGroup string, nameAddr string, prodInstance string) (Producer, error) {
 	producer, err := NewDefaultProducer(prodGroup, nameAddr, prodInstance)
 	if err != nil {
 		panic(err)
@@ -32,7 +32,7 @@ func NewRoutingPoolProducer(coRoutingCount int, prodGroup string, nameAddr strin
 		}
 		return result, err
 	}
-	prod.goRoutingPool, _ = NewGoCoRoutingPool(prod.coRoutingCount, run)
+	prod.goRoutingPool, _ = NewGoCoRoutingPool(prod.coRoutingCount,coQueueSize,run)
 	glog.Infoln("successfully inited GoRoutingPoolProd")
 	return prod, nil
 }

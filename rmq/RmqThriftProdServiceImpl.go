@@ -23,6 +23,10 @@ func (self *RmqThriftProdServiceImpl) Send(msg *RmqMessage) (*RmqSendResult_,err
 	return result,nil
 }
 
+func (self *RmqThriftProdServiceImpl) SendOrderly(msg *RmqMessage, orderKey int32) (r *RmqSendResult_, err error){
+	return nil,nil
+}
+
 func (self *RmqThriftProdServiceImpl) convertResult(sr *rocketmq.SendResult) (*RmqSendResult_) {
 	rs:=new(RmqSendResult_)
 	rs.QueueId=sr.QueueId

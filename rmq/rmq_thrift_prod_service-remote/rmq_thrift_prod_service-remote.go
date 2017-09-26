@@ -22,6 +22,7 @@ func Usage() {
   flag.PrintDefaults()
   fmt.Fprintln(os.Stderr, "\nFunctions:")
   fmt.Fprintln(os.Stderr, "  RmqSendResult send(RmqMessage msg)")
+  fmt.Fprintln(os.Stderr, "  RmqSendResult sendOrderly(RmqMessage msg, i32 orderKey)")
   fmt.Fprintln(os.Stderr)
   os.Exit(0)
 }
@@ -121,24 +122,56 @@ func main() {
       fmt.Fprintln(os.Stderr, "Send requires 1 args")
       flag.Usage()
     }
-    arg6 := flag.Arg(1)
-    mbTrans7 := thrift.NewTMemoryBufferLen(len(arg6))
-    defer mbTrans7.Close()
-    _, err8 := mbTrans7.WriteString(arg6)
-    if err8 != nil {
+    arg8 := flag.Arg(1)
+    mbTrans9 := thrift.NewTMemoryBufferLen(len(arg8))
+    defer mbTrans9.Close()
+    _, err10 := mbTrans9.WriteString(arg8)
+    if err10 != nil {
       Usage()
       return
     }
-    factory9 := thrift.NewTSimpleJSONProtocolFactory()
-    jsProt10 := factory9.GetProtocol(mbTrans7)
+    factory11 := thrift.NewTSimpleJSONProtocolFactory()
+    jsProt12 := factory11.GetProtocol(mbTrans9)
     argvalue0 := rmq.NewRmqMessage()
-    err11 := argvalue0.Read(jsProt10)
-    if err11 != nil {
+    err13 := argvalue0.Read(jsProt12)
+    if err13 != nil {
       Usage()
       return
     }
     value0 := argvalue0
     fmt.Print(client.Send(value0))
+    fmt.Print("\n")
+    break
+  case "sendOrderly":
+    if flag.NArg() - 1 != 2 {
+      fmt.Fprintln(os.Stderr, "SendOrderly requires 2 args")
+      flag.Usage()
+    }
+    arg14 := flag.Arg(1)
+    mbTrans15 := thrift.NewTMemoryBufferLen(len(arg14))
+    defer mbTrans15.Close()
+    _, err16 := mbTrans15.WriteString(arg14)
+    if err16 != nil {
+      Usage()
+      return
+    }
+    factory17 := thrift.NewTSimpleJSONProtocolFactory()
+    jsProt18 := factory17.GetProtocol(mbTrans15)
+    argvalue0 := rmq.NewRmqMessage()
+    err19 := argvalue0.Read(jsProt18)
+    if err19 != nil {
+      Usage()
+      return
+    }
+    value0 := argvalue0
+    tmp1, err20 := (strconv.Atoi(flag.Arg(2)))
+    if err20 != nil {
+      Usage()
+      return
+    }
+    argvalue1 := int32(tmp1)
+    value1 := argvalue1
+    fmt.Print(client.SendOrderly(value0, value1))
     fmt.Print("\n")
     break
   case "":

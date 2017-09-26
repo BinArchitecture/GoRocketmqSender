@@ -16,4 +16,5 @@ struct RmqSendResult{
     }
 service RmqThriftProdService{
      RmqSendResult send(1: RmqMessage msg)
+     RmqSendResult sendOrderly(1: RmqMessage msg,2: i32 orderKey)
 }

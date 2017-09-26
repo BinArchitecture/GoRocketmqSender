@@ -19,11 +19,11 @@ func Benchmark_SendMsg(b *testing.B) {
 	//body := []byte(d)
 	body := []byte("大神哈哈fuck")
 	msg := &RmqMessage{"mqfuck", 0, props, body}
-	size:=30000
+	size:=100000
 	//client,_:=buildClient(addr)
 	wg := sync.WaitGroup{}
 	wg.Add(size)
-	cc,_:=NewGoCoRoutingRmqProdClient(addr,5000,3000,4000)
+	cc,_:=NewGoCoRoutingRmqProdClient(addr,5000,3000,3600,size/2)
 	for j:=0;j<size;j++{
 		go func() {
 			defer wg.Done()
