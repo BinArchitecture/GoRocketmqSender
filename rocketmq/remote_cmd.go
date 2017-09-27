@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	//"log"
-	"sync"
 	"github.com/golang/glog"
 )
 
@@ -15,8 +14,6 @@ const (
 )
 
 var opaque int32
-var decodeLock sync.Mutex
-
 var (
 	remotingVersionKey string = "rocketmq.remoting.version"
 	ConfigVersion      int    = -1
@@ -85,9 +82,6 @@ func (self *RemotingCommand) encode() []byte {
 }
 
 func decodeRemoteCommand(header, body []byte) *RemotingCommand {
-	//decodeLock.Lock()
-	//defer decodeLock.Unlock()
-
 	cmd := &RemotingCommand{}
 	cmd.ExtFields = make(map[string]string)
 	err := json.Unmarshal(header, cmd)

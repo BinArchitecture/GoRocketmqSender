@@ -34,8 +34,7 @@ type RemotingClient interface {
 type DefalutRemotingClient struct {
 	connTable          map[string]net.Conn
 	connTableLock      sync.RWMutex
-	responseTable      map[int32]*ResponseFuture
-	responseTableLock  sync.RWMutex
+	responseTable 		*sync.Map
 	namesrvAddrList    []string
 	namesrvAddrChoosed string
 }
@@ -43,23 +42,23 @@ type DefalutRemotingClient struct {
 func NewDefaultRemotingClient() RemotingClient {
 	return &DefalutRemotingClient{
 		connTable:    make(map[string]net.Conn),
-		responseTable: make(map[int32]*ResponseFuture),
+		responseTable: new(sync.Map),
 	}
 }
 
 func (self *DefalutRemotingClient) ScanResponseTable() {
-	self.responseTableLock.Lock()
-	for seq, response := range self.responseTable {
-		if  (response.beginTimestamp + 30) <= time.Now().Unix() {
-			delete(self.responseTable, seq)
+	self.responseTable.Range(func(key, value interface{}) bool {
+		seq := key.(int32)
+		response := value.(*ResponseFuture)
+		if (response.beginTimestamp + 60) <= time.Now().Unix() {
+			self.responseTable.Delete(seq)
 			if response.invokeCallback != nil {
 				response.invokeCallback(nil)
 				glog.Errorf("remove time out request %v", response)
 			}
 		}
-	}
-	self.responseTableLock.Unlock()
-
+		return true
+	})
 }
 
 func (self *DefalutRemotingClient) connect(addr string) (conn net.Conn, err error) {
@@ -122,9 +121,7 @@ func (self *DefalutRemotingClient) invoke(addr string, request *RemotingCommand,
 	}
 	header := request.encodeHeader()
 	body := request.Body
-	self.responseTableLock.Lock()
-	self.responseTable[request.Opaque] = response
-	self.responseTableLock.Unlock()
+	self.responseTable.Store(request.Opaque,response)
 	err = self.sendRequest(header, body, conn, addr)
 	if err != nil {
 		glog.Error(err)
@@ -240,15 +237,10 @@ func (self *DefalutRemotingClient) handlerConn(conn net.Conn, addr string) {
 				copy(bodyCopy, body)
 				go func() {
 					cmd := decodeRemoteCommand(headerCopy, bodyCopy)
-					self.responseTableLock.RLock()
-					response, ok := self.responseTable[cmd.Opaque]
-					self.responseTableLock.RUnlock()
-
-					self.responseTableLock.Lock()
-					delete(self.responseTable, cmd.Opaque)
-					self.responseTableLock.Unlock()
-
+					resp, ok := self.responseTable.Load(cmd.Opaque)
+					self.responseTable.Delete(cmd.Opaque)
 					if ok {
+						response:=resp.(*ResponseFuture)
 						response.ResponseCommand = cmd
 						if response.invokeCallback != nil {
 							response.SendRequestOK=true
