@@ -229,14 +229,14 @@ func (self *MqClient) startScheduledTask() {
 		}
 	}()
 
-	//go func() {
-	//	scanResponseRouteTimer := time.NewTimer(30 * time.Second)
-	//	for {
-	//		<-scanResponseRouteTimer.C
-	//		self.remotingClient.ScanResponseTable()
-	//		scanResponseRouteTimer.Reset(30 * time.Second)
-	//	}
-	//}()
+	go func() {
+		scanResponseRouteTimer := time.NewTimer(30 * time.Second)
+		for {
+			<-scanResponseRouteTimer.C
+			self.remotingClient.ScanResponseTable()
+			scanResponseRouteTimer.Reset(30 * time.Second)
+		}
+	}()
 }
 
 func (self *MqClient) startProducer() {
