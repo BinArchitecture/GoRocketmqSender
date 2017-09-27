@@ -51,9 +51,7 @@ func (self *DefalutRemotingClient) ScanResponseTable() {
 	self.responseTableLock.Lock()
 	for seq, response := range self.responseTable {
 		if  (response.beginTimestamp + 30) <= time.Now().Unix() {
-
 			delete(self.responseTable, seq)
-
 			if response.invokeCallback != nil {
 				response.invokeCallback(nil)
 				glog.Errorf("remove time out request %v", response)

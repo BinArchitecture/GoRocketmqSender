@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/glog"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -54,52 +53,27 @@ type Config struct {
 type MqClient struct {
 	clientId           string
 	conf               *Config
-	brokerAddrTable    map[string]map[string]string //map[brokerName]map[bokerId]addrs
-	brokerAddrTableLock sync.RWMutex
-	producerTable      map[string]*DefaultProducer
-	producerTableLock *sync.RWMutex
-	topicRouteTable    map[string]*TopicRouteData
-	topicRouteTableLock sync.RWMutex
+	//brokerAddrTable    map[string]map[string]string //map[brokerName]map[bokerId]addrs
+	//brokerAddrTableLock sync.RWMutex
+	brokerAddrTable    *sync.Map //map[brokerName]map[bokerId]addrs
+	producerTable      *sync.Map
+	topicRouteTable    *sync.Map
 	remotingClient     RemotingClient
 }
 
 func NewMqClient() *MqClient {
 	return &MqClient{
-		brokerAddrTable: make(map[string]map[string]string),
-		topicRouteTable: make(map[string]*TopicRouteData),
+		brokerAddrTable: new(sync.Map),//make(map[string]map[string]string),
+		topicRouteTable: new(sync.Map),
 	}
-}
-func (self *MqClient) findBrokerAddressInSubscribe(brokerName string, brokerId int64, onlyThisBroker bool) (brokerAddr string, slave bool, found bool) {
-	slave = false
-	found = false
-	self.brokerAddrTableLock.RLock()
-	brokerMap, ok := self.brokerAddrTable[brokerName]
-	self.brokerAddrTableLock.RUnlock()
-	if ok {
-		brokerAddr, ok = brokerMap[strconv.FormatInt(brokerId, 10)]
-		slave = brokerId != 0
-		found = ok
-
-		if !found && !onlyThisBroker {
-			var id string
-			for id, brokerAddr = range brokerMap {
-				slave = id != "0"
-				found = true
-				break
-			}
-		}
-	}
-
-	return
 }
 
 func (self *MqClient) findBrokerAddressInAdmin(brokerName string) (addr string, found, slave bool) {
 	found = false
 	slave = false
-	self.brokerAddrTableLock.RLock()
-	brokers, ok := self.brokerAddrTable[brokerName]
-	self.brokerAddrTableLock.RUnlock()
+	bb, ok := self.brokerAddrTable.Load(brokerName)
 	if ok {
+		brokers:=bb.(map[string]string)
 		for brokerId, addr := range brokers {
 			if addr != "" {
 				found = true
@@ -116,13 +90,11 @@ func (self *MqClient) findBrokerAddressInAdmin(brokerName string) (addr string, 
 }
 
 func (self *MqClient) findBrokerAddrByTopic(topic string) (addr string, ok bool) {
-	self.topicRouteTableLock.RLock()
-	topicRouteData, ok := self.topicRouteTable[topic]
-	self.topicRouteTableLock.RUnlock()
+	tt, ok := self.topicRouteTable.Load(topic)
 	if !ok {
 		return "", ok
 	}
-
+	topicRouteData:=tt.(*TopicRouteData)
 	brokers := topicRouteData.BrokerDatas
 	if brokers != nil && len(brokers) > 0 {
 		brokerData := brokers[0]
@@ -179,12 +151,14 @@ func (self *MqClient) getTopicRouteInfoFromNameServer(topic string, timeoutMilli
 }
 
 func (self *MqClient) updateProducerTopicRouteInfoFromNameServer() {
-	for _, producer := range self.producerTable {
+	self.producerTable.Range(func(key, value interface{}) bool{
+		producer:=value.(*DefaultProducer)
 		topicPublishInfoTable := producer.topicPublishInfoTable
 		for topic := range topicPublishInfoTable {
 			self.updateTopicRouteInfoFromNameServerByTopic(topic,false)
 		}
-	}
+		return true
+	})
 }
 
 func (self *MqClient) updateTopicRouteInfoFromNameServerByTopic(topic string,isDefault bool) error {
@@ -202,15 +176,10 @@ func (self *MqClient) updateTopicRouteInfoFromNameServerByTopic(topic string,isD
 	}
 
 	for _, bd := range topicRouteData.BrokerDatas {
-		self.brokerAddrTableLock.Lock()
-		self.brokerAddrTable[bd.BrokerName] = bd.BrokerAddrs
-		self.brokerAddrTableLock.Unlock()
+		self.brokerAddrTable.Store(bd.BrokerName,bd.BrokerAddrs)
 	}
 	updateProducerTopic(topicRouteData, topic, self)
-
-	self.topicRouteTableLock.Lock()
-	self.topicRouteTable[topic] = topicRouteData
-	self.topicRouteTableLock.Unlock()
+	self.topicRouteTable.Store(topic,topicRouteData)
 
 	return nil
 }
@@ -223,9 +192,11 @@ func updateProducerTopic(topicRouteData *TopicRouteData, topic string, self *MqC
 		mqList,
 		1,
 	}
-	for _, producer := range self.producerTable {
+	self.producerTable.Range(func(key, value interface{}) bool {
+		producer:=value.(*DefaultProducer)
 		producer.UpdateTopicPublishInfo(topic, topicinfo)
-	}
+		return true
+	})
 }
 func buildmqList(topicRouteData *TopicRouteData, topic string) []*MessageQueue {
 	mqList := make([]*MessageQueue, 0)
@@ -248,7 +219,7 @@ type HeartbeatData struct {
 	ClientId        string
 }
 
-func (self *MqClient) startScheduledTask(isPull bool) {
+func (self *MqClient) startScheduledTask() {
 	go func() {
 		updateTopicRouteTimer := time.NewTimer(5 * time.Second)
 		for {
@@ -257,8 +228,17 @@ func (self *MqClient) startScheduledTask(isPull bool) {
 			updateTopicRouteTimer.Reset(5 * time.Second)
 		}
 	}()
+
+	//go func() {
+	//	scanResponseRouteTimer := time.NewTimer(30 * time.Second)
+	//	for {
+	//		<-scanResponseRouteTimer.C
+	//		self.remotingClient.ScanResponseTable()
+	//		scanResponseRouteTimer.Reset(30 * time.Second)
+	//	}
+	//}()
 }
 
 func (self *MqClient) startProducer() {
-	self.startScheduledTask(false)
+	self.startScheduledTask()
 }

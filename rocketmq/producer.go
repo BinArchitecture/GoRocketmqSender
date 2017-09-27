@@ -61,10 +61,9 @@ func NewDefaultProducer(producerGroup string, namesrvAddr string, prodInstanceNa
 	producer.topicPublishInfoTableLock=new(sync.RWMutex)
 	producer.topicPublishInfoTable[DEFAULTCRATETOPICKEY]=new(TopicPublishInfo)
 	mqClient.remotingClient = remotingClient
-	mqClient.producerTable=make(map[string]*DefaultProducer)
+	mqClient.producerTable=new(sync.Map)
 	mqClient.conf = conf
 	mqClient.clientId = conf.ClientIp + "@" + strconv.Itoa(os.Getpid())
-	mqClient.producerTableLock=new(sync.RWMutex)
 	return producer, nil
 }
 
@@ -157,13 +156,9 @@ func (self *DefaultProducer) sendKernel(msg *Message,mq *MessageQueue,isSync boo
 }
 
 func (self *DefaultProducer) tryToFindTopicPublishInfo(topic string) (*TopicPublishInfo,error){
-	self.mqClient.producerTableLock.RLock()
-	_,oo:=self.mqClient.producerTable[topic]
-	self.mqClient.producerTableLock.RUnlock()
+	_,oo:=self.mqClient.producerTable.Load(topic)
 	if !oo {
-		self.mqClient.producerTableLock.Lock()
-		self.mqClient.producerTable[topic]=self
-		self.mqClient.producerTableLock.Unlock()
+		self.mqClient.producerTable.Store(topic,self)
 	}
 	var err error
 	self.topicPublishInfoTableLock.RLock()
