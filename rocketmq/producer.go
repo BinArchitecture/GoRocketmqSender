@@ -10,16 +10,9 @@ import (
 	"fmt"
 )
 
-//const (
-//	createTopicKey  = "TBW102"
-//    defaultTopicQueueNums = 4
-//    sendMsgTimeout = 3000
-//    compressMsgBodyOverHowmuch = 1024 * 4
-//    retryTimesWhenSendFailed = 2
-//    retryAnotherBrokerWhenNotStoreOK = false
-//    maxMessageSize = 1024 * 128
-//    unitMode = false
-//)
+const (
+	DEFAULTCRATETOPICKEY  = "TBW102"
+)
 
 type Producer interface {
 	//Admin
@@ -66,7 +59,7 @@ func NewDefaultProducer(producerGroup string, namesrvAddr string, prodInstanceNa
 	producer.remotingClient=remotingClient
 	producer.mqClient=mqClient
 	producer.topicPublishInfoTableLock=new(sync.RWMutex)
-	producer.topicPublishInfoTable["TBW102"]=new(TopicPublishInfo)
+	producer.topicPublishInfoTable[DEFAULTCRATETOPICKEY]=new(TopicPublishInfo)
 	mqClient.remotingClient = remotingClient
 	mqClient.producerTable=make(map[string]*DefaultProducer)
 	mqClient.conf = conf
@@ -129,7 +122,7 @@ func (self *DefaultProducer) sendKernel(msg *Message,mq *MessageQueue,isSync boo
 	prodreqheader:=new(SendMessageRequestHeader)
 	prodreqheader.ProducerGroup=self.producerGroup
 	prodreqheader.Topic=msg.Topic
-	prodreqheader.DefaultTopic="TBW102"
+	prodreqheader.DefaultTopic=DEFAULTCRATETOPICKEY
 	prodreqheader.DefaultTopicQueueNums=int32(self.defaultTopicQueueNums)
 	prodreqheader.QueueId=mq.queueId
 	prodreqheader.Flag=msg.Flag
@@ -188,7 +181,14 @@ func (self *DefaultProducer) tryToFindTopicPublishInfo(topic string) (*TopicPubl
 	if info.HaveTopicRouterInfo{
 		return info,nil
 	}else{
-		return nil,err
+		err=self.mqClient.updateTopicRouteInfoFromNameServerByTopic(topic,true)
+		if err!=nil{
+			return nil,err
+		}
+		self.topicPublishInfoTableLock.RLock()
+		info=self.topicPublishInfoTable[topic]
+		self.topicPublishInfoTableLock.RUnlock()
+		return info,nil
 	}
 }
 

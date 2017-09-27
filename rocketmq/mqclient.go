@@ -187,11 +187,16 @@ func (self *MqClient) updateProducerTopicRouteInfoFromNameServer() {
 	}
 }
 
-func (self *MqClient) updateTopicRouteInfoFromNameServerByTopic(topic string,isConsume bool) error {
-
-	topicRouteData, err := self.getTopicRouteInfoFromNameServer(topic, 3000*1000)
+func (self *MqClient) updateTopicRouteInfoFromNameServerByTopic(topic string,isDefault bool) error {
+	var topicRouteData *TopicRouteData
+	var err error
+	if isDefault{
+		topicRouteData,err = self.getTopicRouteInfoFromNameServer(DEFAULTCRATETOPICKEY, 300*1000)
+	}else{
+		topicRouteData,err = self.getTopicRouteInfoFromNameServer(topic, 300*1000)
+	}
 	if err != nil {
-		glog.Error(err)
+		glog.Warning(err)
 		//debug.PrintStack()
 		return err
 	}
