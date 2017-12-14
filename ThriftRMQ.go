@@ -13,13 +13,13 @@ import (
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	flag.Parse()
-	prod,er:=rocketmq.NewRoutingPoolProducer(50000,500000,"test1Group", "10.6.30.109:9876","prodInstance")
+	prod,er:=rocketmq.NewRoutingPoolProducer(50000,500000,"test1Group", "10.6.30.141:9876","prodInstance")
 	if er != nil {
 		panic(er)
 	}
 	transportFactory := thrift.NewTTransportFactory()
 	protocolFactory := thrift.NewTBinaryProtocolFactory(true, true)
-	serverTransport, err := thrift.NewTServerSocket("10.6.30.109:7912")
+	serverTransport, err := thrift.NewTServerSocket("10.6.30.141:7912")
 	if err != nil {
 		glog.Errorf("Error%v!\n", err)
 		os.Exit(1)

@@ -11,19 +11,19 @@ import (
 func Benchmark_SendMsg(b *testing.B) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	flag.Parse()
-	addr:="10.6.30.109:7912"
+	addr:="10.6.30.141:7912"
 	size:=10000
 	//wg := sync.WaitGroup{}
 	//wg.Add(size)
 	cc,_:=NewGoCoRoutingRmqProdClient(addr,5000,3000,3600,size/2)
 	for j:=0;j<size;j++{
 		props := make(map[string]string)
-		props["fuck"] = "asd"
+		props["bintest"] = "asd"
 		d := strconv.Itoa(j)
-		d = d + "大神哈哈fuck"
+		d = d + "大神哈哈bintest"
 		body := []byte(d)
-		//body := []byte("大神哈哈fuck")
-		msg := &RmqMessage{"mqfuckodr", 0, props, body}
+		//body := []byte("大神哈哈bintest")
+		msg := &RmqMessage{"mqbintestodr", 0, props, body}
 		rmresult,_:=cc.SendMsgOdrly(msg,777)
 		if rmresult==nil{
 			fmt.Errorf("rmresult send Fail\n")
