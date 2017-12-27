@@ -21,7 +21,7 @@ func main() {
 	protocolFactory := thrift.NewTBinaryProtocolFactory(true, true)
 	serverTransport, err := thrift.NewTServerSocket("10.6.30.141:7912")
 	if err != nil {
-		glog.Errorf("Error%v!\n", err)
+		 glog.Errorf("Error%v!\n", err)
 		os.Exit(1)
 	}
 	handler := &rmq.RmqThriftProdServiceImpl{
